@@ -5,6 +5,7 @@ import java.io.InputStreamReader;
 import java.net.URL;
 import java.net.URLConnection;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 /**
@@ -18,11 +19,33 @@ public class CMCrawler {
 	public static void main(String[] args) {
 		// TODO Auto-generated method stub
 		CMCrawler cmcrawler = new CMCrawler();
-		String url = "http://localhost:3000/comment/music?id=28234334&limit=10";
-		String result = cmcrawler.get(url);
-		JSONObject jsonObject = new JSONObject(result);
+		String baseUrl = "http://localhost:3000/";
+		String myID = "259220217", targetUser = "644803921";
+		// 歌单
+		String myPlayList = cmcrawler.get(baseUrl + "user/playlist?uid=" + myID);
+		JSONArray playList = (JSONArray)new JSONObject(myPlayList).get("playlist");
+		JSONObject favorateList = (JSONObject) playList.get(0);
+		String listID = String.valueOf(favorateList.get("id"));
+		// 歌单内歌曲
+		String songs = cmcrawler.get(baseUrl + "playlist/detail?id=" + listID);
 		
-		System.out.println(jsonObject);
+		JSONArray songsArray = (JSONArray) new JSONObject(songs).get("privileges");
+		JSONObject song = (JSONObject) songsArray.get(0);// 第一首歌
+		String songID = String.valueOf(song.get("id"));
+		// 获取评论
+		String commentLimit = "100";
+		
+		String comments = cmcrawler.get(baseUrl + "comment/music?id=" + songID + "&limit=" + commentLimit);
+		JSONObject commentsJson = new JSONObject(comments);
+		JSONArray commentsArray = (JSONArray) commentsJson.get("comments");
+		for(int i = 0, l = commentsArray.length(); i < l; i ++) {
+			JSONObject comment = (JSONObject) commentsArray.get(i);
+			JSONObject user = (JSONObject) comment.get("user");
+			String userID = String.valueOf(user.get("userId"));
+			if(userID.equals(targetUser))
+				System.out.println(comment.get("content"));
+		}
+//		System.out.println(jsonObject);
 	}
 	
 	/**
