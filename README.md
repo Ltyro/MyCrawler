@@ -1,3 +1,3 @@
 # MyCrawler
 
-闲来无事爬爬云音乐
+cloud music crawler, based on NeteaseCloudMusicApi
