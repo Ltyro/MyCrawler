@@ -1,4 +1,4 @@
-package Lnstark.MyCrawler;
+package Lnstark.MyCrawler.CloudMusic;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -46,7 +46,7 @@ public class CMCrawler {
 		CMCrawler cmcrawler = new CMCrawler();
 		String baseUrl = cmcrawler.getBaseUrl();
 		String myID = "259220217", targetUser = "644803921";
-		String targetID = "259220217", commenter = targetID;
+		String targetID = "1441876771", commenter = targetID;
 		
 		int weekRecord = 1, allRecord = 0;
 		String record = cmcrawler.get(baseUrl + "user/record?uid="+targetID+"&type="+allRecord);
