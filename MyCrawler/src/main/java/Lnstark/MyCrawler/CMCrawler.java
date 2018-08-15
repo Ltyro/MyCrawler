@@ -1,6 +1,10 @@
 package Lnstark.MyCrawler;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URL;
 import java.net.URLConnection;
@@ -15,37 +19,131 @@ import org.json.JSONObject;
  *
  */
 public class CMCrawler {
+	
+	private String baseUrl = "http://localhost:3000/";
+	String targetFile = "D:\\GitReposity\\NeteaseCloudMusicApi\\output\\result.txt";
+	BufferedWriter bw;
+	
+	public CMCrawler() {
+		try {
+			bw = new BufferedWriter(new FileWriter(new File(targetFile)));
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+	
+	public String getBaseUrl() {
+		return baseUrl;
+	}
 
-	public static void main(String[] args) {
+	public void setBaseUrl(String baseUrl) {
+		this.baseUrl = baseUrl;
+	}
+
+	public static void main(String[] args){
 		// TODO Auto-generated method stub
 		CMCrawler cmcrawler = new CMCrawler();
-		String baseUrl = "http://localhost:3000/";
+		String baseUrl = cmcrawler.getBaseUrl();
 		String myID = "259220217", targetUser = "644803921";
-		// 歌单
-		String myPlayList = cmcrawler.get(baseUrl + "user/playlist?uid=" + myID);
-		JSONArray playList = (JSONArray)new JSONObject(myPlayList).get("playlist");
-		JSONObject favorateList = (JSONObject) playList.get(0);
-		String listID = String.valueOf(favorateList.get("id"));
-		// 歌单内歌曲
-		String songs = cmcrawler.get(baseUrl + "playlist/detail?id=" + listID);
+		String targetID = "259220217", commenter = targetID;
 		
-		JSONArray songsArray = (JSONArray) new JSONObject(songs).get("privileges");
-		JSONObject song = (JSONObject) songsArray.get(0);// 第一首歌
-		String songID = String.valueOf(song.get("id"));
-		// 获取评论
-		String commentLimit = "100";
+		int weekRecord = 1, allRecord = 0;
+		String record = cmcrawler.get(baseUrl + "user/record?uid="+targetID+"&type="+allRecord);
+		if(record == null) return;
+		JSONArray recordList = (JSONArray)new JSONObject(record).get("allData");
 		
-		String comments = cmcrawler.get(baseUrl + "comment/music?id=" + songID + "&limit=" + commentLimit);
-		JSONObject commentsJson = new JSONObject(comments);
-		JSONArray commentsArray = (JSONArray) commentsJson.get("comments");
-		for(int i = 0, l = commentsArray.length(); i < l; i ++) {
-			JSONObject comment = (JSONObject) commentsArray.get(i);
-			JSONObject user = (JSONObject) comment.get("user");
-			String userID = String.valueOf(user.get("userId"));
-			if(userID.equals(targetUser))
-				System.out.println(comment.get("content"));
+		for(int i = 0; i < recordList.length(); i ++) {
+			JSONObject song = (JSONObject) ((JSONObject) recordList.get(i)).get("song");
+			String songID = String.valueOf(song.get("id"));
+			try {
+				cmcrawler.handleCommentsOfSongID(songID, commenter);
+			} catch(Exception e) {
+				System.out.println(e);
+			}
 		}
-//		System.out.println(jsonObject);
+		
+		
+	}
+	
+	private void crawPlayList(String playListHost, String commenter) {
+		// 歌单
+		String myPlayList = get(baseUrl + "user/playlist?uid=" + playListHost);
+		if(myPlayList == null) return;
+		JSONArray playList = (JSONArray)new JSONObject(myPlayList).get("playlist");
+		int listNum = 12;// 要爬的歌单数
+		for(int i = 2; i < listNum; i ++) {
+			JSONObject songList = (JSONObject) playList.get(i);
+			String listID = String.valueOf(songList.get("id"));
+			// 歌单内歌曲
+			System.out.println("crawling list: " + String.valueOf(songList.get("name")));
+			String songs = get(baseUrl + "playlist/detail?id=" + listID);
+			if(songs == null) continue;
+			JSONArray songsArray = (JSONArray) new JSONObject(songs).get("privileges");
+			for(int j = 0, sl = songsArray.length(); j < sl; j ++) {
+				// 获取歌
+				JSONObject song = (JSONObject) songsArray.get(j);// 
+				String songID = String.valueOf(song.get("id"));
+				// 获取评论
+				try {
+					handleCommentsOfSongID(songID, commenter);
+				} catch(Exception e) {
+					System.out.println(e);
+				}
+			}
+			
+		}
+	}
+	
+	private void handleCommentsOfSongID(String songID, String commenter) {
+		String commentLimit = "100";
+		int offset = 0;
+		String songDetail = get(baseUrl + "song/detail?ids=" + songID);
+		if(songDetail == null) return;
+		JSONObject songDetailJson = new JSONObject(songDetail);
+		JSONArray songs = (JSONArray) songDetailJson.get("songs");
+		JSONObject song = (JSONObject) songs.get(0);
+		String songName = (String) song.get("name");
+		System.out.println("crawling comments of song: " + songName);
+		String comments = get(baseUrl + "comment/music?id=" + songID + 
+				"&limit=" + commentLimit + "&offset=" + offset);
+		if(comments == null) return;
+		JSONObject commentsJson = new JSONObject(comments);
+		int totalComments = commentsJson.getInt("total"), step = 100, maxPage = 100;
+		
+		for(int i = 0, page = totalComments/step + 1; i < page && i < maxPage; i ++) {
+			comments = get(baseUrl + "comment/music?id=" + songID 
+					+ "&limit=" + commentLimit + "&offset=" + offset);
+			if(comments == null) continue;
+			commentsJson = new JSONObject(comments);
+			System.out.println("crawling comments " + offset);
+			handleComments(commentsJson, commenter);
+			
+			offset += step;
+			
+		} 
+	}
+	
+	private void handleComments(JSONObject commentsJson, String commenter) {
+		JSONArray commentsArray = (JSONArray) commentsJson.get("comments");
+		try {
+			for(int j = 0, l = commentsArray.length(); j < l; j ++) {
+				JSONObject comment = (JSONObject) commentsArray.get(j);
+				JSONObject user = (JSONObject) comment.get("user");
+				String userID = String.valueOf(user.get("userId"));
+				if(userID.equals(commenter)) {
+					String userNickName = String.valueOf(user.get("nickname"));
+					String targetComment = "{comment id: "+ comment.get("commentId") 
+										+", content: "+ comment.get("content") +
+										", userNickName: "+ userNickName +"}";
+					System.out.printf(targetComment);
+					bw.write(targetComment);
+				}
+			}
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 	}
 	
 	/**
